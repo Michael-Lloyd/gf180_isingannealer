@@ -27,7 +27,7 @@ module accept
         .thr (thr)
     ); 
 
-    assign acc = (d_eff <= 0) || (u < thr);
+    assign acc = (de_eff <= 0) || (u < thr);
 
 endmodule
 
