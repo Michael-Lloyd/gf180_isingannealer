@@ -47,7 +47,7 @@ module chip_core #(
     assign bidir_pd = '0;
     
     logic _unused;
-    assign _unused = &{bidir_in, input_in[NUM_INPUT_PADS-1:4]};
+    assign _unused = &{bidir_in, input_in};
 
     logic sdo, done, trng_raw;
 

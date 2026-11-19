@@ -3,7 +3,7 @@
 
 import os
 import random
-import logging
+import itertools
 from pathlib import Path
 
 import cocotb
@@ -21,14 +21,19 @@ slot = os.getenv("SLOT", "1x1")
 
 hdl_toplevel = "chip_top"
 
+N = 8
+LEVELS = 16
+REG = {"ID": 0x00, "CTRL": 0x01, "SPINS": 0x03, "T_START": 0x05, "T_END": 0x06,
+       "LEVEL_SWEEPS": 0x07, "SEED": 0x0A, "WCHAIN": 0x10, "H": 0x18}
+
 async def set_defaults(dut):
-    dut.input_PAD.value = 0
+    set_pins(dut)
 
 async def enable_power(dut):
     dut.VDD.value = 1
     dut.VSS.value = 0
 
-async def start_clock(clock, freq=50):
+async def start_clock(clock, freq=10):
     """Start the clock @ freq MHz"""
     c = Clock(clock, 1 / freq * 1000, "ns")
     cocotb.start_soon(c.start())
@@ -54,38 +59,91 @@ async def start_up(dut):
     await reset(dut.rst_n_PAD)
 
 
+def set_pins(dut, sclk=0, cs_n=1, sdi=0):
+    dut.input_PAD.value = sclk | cs_n << 1 | sdi << 2
+
+
+async def spi_transfer(dut, word):
+    """Send a 16 bit SPI frame and return the byte read back"""
+    data = 0
+    for bit in range(15, -1, -1):
+        sdi = (word >> bit) & 1
+        set_pins(dut, sclk=0, cs_n=0, sdi=sdi)
+        await ClockCycles(dut.clk_PAD, 4)
+        data = data << 1 | int(dut.bidir_PAD.value[0])
+        set_pins(dut, sclk=1, cs_n=0, sdi=sdi)
+        await ClockCycles(dut.clk_PAD, 4)
+    set_pins(dut, cs_n=0)
+    await ClockCycles(dut.clk_PAD, 4)
+    set_pins(dut)
+    await ClockCycles(dut.clk_PAD, 4)
+    return data & 0xFF
+
+
+async def spi_write(dut, addr, data):
+    await spi_transfer(dut, addr << 8 | data & 0xFF)
+
+
+async def spi_read(dut, addr):
+    return await spi_transfer(dut, (0x80 | addr) << 8)
+
+
+def energy(J, h, spins):
+    s = [1 if spins >> i & 1 else -1 for i in range(N)]
+    pairs = itertools.combinations(range(N), 2)
+    return -sum(J[i][j] * s[i] * s[j] for i, j in pairs) - sum(h[i] * s[i] for i in range(N))
+
+
 @cocotb.test()
-async def test_counter(dut):
-    """Run the counter test"""
+async def test_registers(dut):
+    """Read the ID and write a register back"""
 
-    # Create a logger for this testbench
-    logger = logging.getLogger("my_testbench")
-
-    logger.info("Startup sequence...")
-
-    # Start up
     await start_up(dut)
 
-    logger.info("Running the test...")
+    assert await spi_read(dut, REG["ID"]) == 0x15
 
-    # Wait for some time...
-    await ClockCycles(dut.clk_PAD, 10)
+    await spi_write(dut, REG["T_START"], 2)
+    assert await spi_read(dut, REG["T_START"]) == 2
 
-    # Please note that cocotb cannpt write to individual bits of a vector.
-    # If you need to write to individual bits, you can separate e.g. the 
-    # bidir_PAD vector into individual bits through a tb wrapper.
-    # Even better, use individual pad names for each bit.
 
-    # Start the counter by setting all inputs to 1
-    dut.input_PAD.value = -1
+@cocotb.test()
+async def test_anneal(dut):
+    """Anneal random problems and compare with the ground state"""
 
-    # Wait for a number of clock cycles
-    await ClockCycles(dut.clk_PAD, 100)
+    rng = random.Random(0)
 
-    # Check the end result of the counter
-    assert dut.bidir_PAD.value == 100 - 1
+    await start_up(dut)
 
-    logger.info("Done!")
+    hits = 0
+    for problem in range(4):
+        J = [[rng.randint(-4, 3) for j in range(N)] for i in range(N)]
+        h = [rng.randint(-4, 3) for i in range(N)]
+
+        for i, j in reversed(list(itertools.combinations(range(N), 2))):
+            await spi_write(dut, REG["WCHAIN"], J[i][j])
+        for i in range(N):
+            await spi_write(dut, REG["H"] + i, h[i])
+        await spi_write(dut, REG["SPINS"], rng.randrange(256))
+        await spi_write(dut, REG["T_START"], 0)
+        await spi_write(dut, REG["T_END"], LEVELS - 1)
+        await spi_write(dut, REG["LEVEL_SWEEPS"], 32)
+        await spi_write(dut, REG["SEED"], rng.randint(1, 255))
+        await spi_write(dut, REG["CTRL"], 0x01)
+
+        for _ in range(100):
+            await ClockCycles(dut.clk_PAD, 100)
+            if int(dut.bidir_PAD.value[1]):
+                break
+        assert int(dut.bidir_PAD.value[1])
+
+        e = energy(J, h, await spi_read(dut, REG["SPINS"]))
+        ground = min(energy(J, h, s) for s in range(1 << N))
+        cocotb.log.info(f"Problem {problem}: energy {e}, ground state {ground}")
+
+        assert e >= ground
+        hits += e == ground
+
+    assert hits >= 3
 
 
 def chip_top_runner():
@@ -112,8 +170,13 @@ def chip_top_runner():
 
         defines.update({"FUNCTIONAL": True, "USE_POWER_PINS": True})
     else:
+        rtl = proj_path / "../src/ising"
+        sources.append(rtl / "ising_params.sv")
+        sources += sorted(f for f in rtl.glob("*.sv") if f.name != "ising_params.sv")
+        sources.append(proj_path / "../src/ising_macro.sv")
         sources.append(proj_path / "../src/chip_top.sv")
         sources.append(proj_path / "../src/chip_core.sv")
+        defines["SIMULATION"] = True
 
     sources += [
         # IO pad models
@@ -133,7 +196,7 @@ def chip_top_runner():
     if sim == "icarus":
         # For debugging
         # build_args = ["-Winfloop", "-pfileline=1"]
-        pass
+        build_args = ["-g2012"]
 
     if sim == "verilator":
         build_args = ["--timing", "--trace", "--trace-fst", "--trace-structs"]
@@ -146,6 +209,7 @@ def chip_top_runner():
         always=True,
         includes=includes,
         build_args=build_args,
+        timescale=("1ns", "1ps"),
         waves=True,
     )
 
