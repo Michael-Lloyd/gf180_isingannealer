@@ -114,6 +114,16 @@ jobs:
         with:
           name: ${{ matrix.slot }}_${{ matrix.domain }}_image
           path: final/render/*.png
+      - name: Build the macro
+        if: success() || failure()
+        run: |
+          nix develop --command make macro
+      - name: Upload macro
+        if: success() || failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ising_macro
+          path: final_macro/*
       - name: Run GL simulation
         if: success() || failure()
         run: |

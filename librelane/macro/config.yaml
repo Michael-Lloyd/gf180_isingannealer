@@ -1,0 +1,33 @@
+meta:
+  version: 3
+  flow: Classic
+
+DESIGN_NAME: ising_macro
+VERILOG_FILES:
+- dir::../../src/ising/*.sv
+- dir::../../src/ising_macro.sv
+USE_SLANG: True
+
+CLOCK_PORT: clk
+CLOCK_PERIOD: 100
+PNR_SDC_FILE: dir::ising_macro.sdc
+SIGNOFF_SDC_FILE: dir::ising_macro.sdc
+
+FP_SIZING: absolute
+DIE_AREA: [0, 0, 500, 500]
+LEFT_MARGIN_MULT: 1
+RIGHT_MARGIN_MULT: 1
+BOTTOM_MARGIN_MULT: 0.25
+TOP_MARGIN_MULT: 0.25
+
+RT_MAX_LAYER: Metal4
+PDN_MULTILAYER: False
+
+RSZ_DONT_TOUCH_RX: ".*u_ro.*"
+
+EXTRA_EXCLUDED_CELLS:
+- gf180mcu_fd_sc_mcu7t5v0__dly*
+RUN_POST_GRT_DESIGN_REPAIR: True
+GRT_DESIGN_REPAIR_MAX_SLEW_PCT: 25
+DESIGN_REPAIR_MAX_SLEW_PCT: 30
+CTS_SINK_CLUSTERING_SIZE: 10

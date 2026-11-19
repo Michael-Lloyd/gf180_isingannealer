@@ -106,6 +106,10 @@ librelane-padring: clone-pdk defines ## Only create the padring
 	python3 scripts/padring.py ${LIBRELANE_CONFIGS} ${LIBRELANE_OPTS}
 .PHONY: librelane-padring
 
+macro: clone-pdk 
+	librelane librelane/macro/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --scl ${SCL} --save-views-to $(MAKEFILE_DIR)/final_macro
+.PHONY: macro
+
 sim: clone-pdk defines ## Run RTL simulation with cocotb
 	cd cocotb; PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} PAD=${PAD} SCL=${SCL} python3 chip_top_tb.py
 .PHONY: sim
