@@ -113,34 +113,10 @@ ERROR_ON_MAGIC_DRC: False
 MAGIC_GDS_FLATGLOB:
 # For contacts
 - "*_CDNS_*"
-# Foundry provided SRAMs
-- "*$$*"
 - "M1_N*"
 - "M1_P*"
 - "M2_M1*"
 - "M3_M2*"
-- "nmos_5p0*"
-- "nmos_1p2*"
-- "pmos_5p0*"
-- "pmos_1p2*"
-- "via1_*"
-- "ypass_gate*"
-- "G_ring_*"
-# These additional cells must be flattened to get rid of 3.3V devices
-# (DUALGATE drawn into high-level cells)
-- "dcap_103*"
-- "din_*"
-- "mux821_*"
-- "rdummy_*"
-- "pmoscap_*"
-- "xdec_*"
-- "ypredec*"
-- "xpredec*"
-- "prexdec_*"
-- "xdec8_*"
-- "xdec16_*"
-- "xdec32_*"
-- "sa_*"
 
 # Since we cannot meet the minimum density limit on Metal2,
 # ignore active metal on previous and subsequent layers
