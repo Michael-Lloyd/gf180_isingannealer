@@ -80,3 +80,7 @@ if { [info exists ::env(OPENLANE_SDC_IDEAL_CLOCKS)] && $::env(OPENLANE_SDC_IDEAL
     set_propagated_clock [all_clocks]
 }
 
+set ro_cells [get_cells -quiet -hierarchical *u_ro*]
+if { [llength $ro_cells] > 0 } {
+    set_disable_timing $ro_cells
+}
