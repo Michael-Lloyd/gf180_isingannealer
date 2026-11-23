@@ -110,6 +110,15 @@ macro: clone-pdk
 	librelane librelane/macro/config.yaml --pdk ${PDK} --pdk-root ${PDK_ROOT} --manual-pdk --scl ${SCL} --save-views-to $(MAKEFILE_DIR)/final_macro
 .PHONY: macro
 
+handoff:
+	rm -rf handoff
+	mkdir -p handoff/lib handoff/reports
+	cp final_macro/gds/ising_macro.gds final_macro/lef/ising_macro.lef final_macro/pnl/ising_macro.pnl.v handoff/
+	cp final_macro/lib/*/ising_macro__*.lib handoff/lib/
+	R=$$(ls -td librelane/macro/runs/RUN_*/ | head -1); \
+	cp $$R/*-magic-drc/reports/drc.magic.rpt $$R/*-klayout-drc/reports/drc.klayout.lyrdb $$R/*-netgen-lvs/reports/lvs.netgen.rpt handoff/reports/
+.PHONY: handoff
+
 sim: clone-pdk defines ## Run RTL simulation with cocotb
 	cd cocotb; PDK_ROOT=${PDK_ROOT} PDK=${PDK} SLOT=${SLOT} PAD=${PAD} SCL=${SCL} python3 chip_top_tb.py
 .PHONY: sim
