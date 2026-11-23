@@ -1,0 +1,11 @@
+macro size is 500 x 500 um.
+
+uses gf180mcu_fd_sc_mcu7t5v0, with a 5V supply.
+
+VDD and VSS on Metal4, Metal5 is unused. 
+
+pins on Metal2 at bottom edge. 
+
+Clock as clk pin, timed for 10MHz.
+
+GDS has no metal fill, but does have standard filler cells.

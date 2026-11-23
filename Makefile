@@ -111,7 +111,7 @@ macro: clone-pdk
 .PHONY: macro
 
 handoff:
-	rm -rf handoff
+	rm -rf handoff/lib handoff/reports handoff/ising_macro.*
 	mkdir -p handoff/lib handoff/reports
 	cp final_macro/gds/ising_macro.gds final_macro/lef/ising_macro.lef final_macro/pnl/ising_macro.pnl.v handoff/
 	cp final_macro/lib/*/ising_macro__*.lib handoff/lib/
